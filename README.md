@@ -12,14 +12,17 @@ python 2.7
 numpy
 pandas
 sklearn
+nltk
 tensorflow 1.0.0 with tensorflow-fold
 ~~~
 
-In order to train the NER and RC models, pre-trained word embeddings are needed. Since these files tend to gigabytes in size, they must be downloaded separately to the embedding folder. See [embeddings/README.md](embeddings/README.md) for more details on how to do this.
+In order to train the NER and RC models, pre-trained word embeddings are needed. Since these files tend to be large (gigabytes), they must be downloaded separately to the embedding folder. See [embeddings/README.md](embeddings/README.md) for more details on how to do this.
 
 # Training
 
 This will train on the pre-formatted data provided in the `corpus_train` directory. Note that this data is compiled from multiple sources including an *augmented* version of the original training data; please see the paper below for more details on the training data composition. 
+
+Training the supervised models may take up to 24 hours depending on hardware.
 
 ## Named Entity Recognition (NER)
 
@@ -54,15 +57,20 @@ PNER2=$PIPELINE/pipeline2.5.ner.txt
 PGNORM=$PIPELINE/pipeline3.gnorm.txt
 OUTPUT=$PIPELINE/pipeline_output.txt
 DATAPATH=corpus_train
-GNCACHE=gene_normalization
+GNCACHE=gn_model
 
 CUDA_VISIBLE_DEVICES=""
+echo "Step 1 / Tokenizing input feed / $PTOKEN"
 python -u $PIPELINE/tokenize_input.py < $INPUT > $PTOKEN
+echo "Step 2 / NER Annotations / $PNER"
 python -u ner_model/annotate.py --datapath=$DATAPATH < $PTOKEN > $PNER
+echo "Step 3 / NER Corrections / $PNER2"
 python -u ner_correction/annotate.py --datapath=$DATAPATH < $PNER > $PNER2
+echo "Step 4 / Gene Normalization / $PGNORM"
 python -u gn_model/annotate.py --datapath=$DATAPATH --cachepath=$GNCACHE < $PNER2 > $PGNORM
+echo "Step 5 / PPIm Extraction / $OUTPUT"
 python -u rc_model/extract.py --datapath=$DATAPATH < $PGNORM > $OUTPUT
-echo "Output saved to $OUTPUT"
+echo "Done" 
 ```
 
 **WARNING: Please note that, for gene normalization, the program will make frequent external queries to the NCBI gene database. Caching is implemented to avoid querying redundant information.**
